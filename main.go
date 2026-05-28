@@ -308,7 +308,9 @@ func waitForStyleLoaded(rt *maplibre.RuntimeHandle, budget time.Duration) error 
 			}
 		}
 		if !productive {
-			runtime.Gosched()
+			if _, err := rt.RunBlocking(10 * time.Millisecond); err != nil {
+				return fmt.Errorf("RunBlocking: %w", err)
+			}
 		}
 	}
 	return fmt.Errorf("style load timed out after %s", budget)
@@ -412,7 +414,13 @@ func renderStill(rt *maplibre.RuntimeHandle, m *maplibre.MapHandle, sess *maplib
 			}
 		}
 		if !productive {
-			runtime.Gosched()
+			// Block in the libuv loop until the next event or up to 10 ms,
+			// so we don't busy-spin between RunOnce/PollEvent iterations.
+			// The 10 ms cap keeps the loop responsive even if some completion
+			// doesn't go through the async path we wake on.
+			if _, err := rt.RunBlocking(10 * time.Millisecond); err != nil {
+				return fmt.Errorf("RunBlocking: %w", err)
+			}
 		}
 	}
 	return fmt.Errorf("render still timed out after %s", budget)
