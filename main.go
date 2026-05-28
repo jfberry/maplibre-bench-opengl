@@ -308,8 +308,8 @@ func waitForStyleLoaded(rt *maplibre.RuntimeHandle, budget time.Duration) error 
 			}
 		}
 		if !productive {
-			if _, err := rt.RunBlocking(10 * time.Millisecond); err != nil {
-				return fmt.Errorf("RunBlocking: %w", err)
+			if _, err := rt.WaitForEvent(10 * time.Millisecond); err != nil {
+				return fmt.Errorf("WaitForEvent: %w", err)
 			}
 		}
 	}
@@ -414,12 +414,12 @@ func renderStill(rt *maplibre.RuntimeHandle, m *maplibre.MapHandle, sess *maplib
 			}
 		}
 		if !productive {
-			// Block in the libuv loop until the next event or up to 10 ms,
-			// so we don't busy-spin between RunOnce/PollEvent iterations.
-			// The 10 ms cap keeps the loop responsive even if some completion
-			// doesn't go through the async path we wake on.
-			if _, err := rt.RunBlocking(10 * time.Millisecond); err != nil {
-				return fmt.Errorf("RunBlocking: %w", err)
+			// Wait for a runtime event to land in the queue (or up to 10 ms).
+			// WaitForEvent filters libuv-internal wakes that don't produce a
+			// PollEvent-drainable event, so we don't pay a cgo crossing per
+			// spurious wake.
+			if _, err := rt.WaitForEvent(10 * time.Millisecond); err != nil {
+				return fmt.Errorf("WaitForEvent: %w", err)
 			}
 		}
 	}
